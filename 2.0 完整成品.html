@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>笔记记录应用</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: "#3b82f6",
+            secondary: "#64748b",
+            accent: "#f97316",
+            neutral: "#f8fafc",
+            "neutral-dark": "#1e293b",
+          },
+          fontFamily: {
+            sans: ["Inter", "system-ui", "sans-serif"],
+          },
+          boxShadow: {
+            note: "0 4px 20px rgba(0, 0, 0, 0.08)",
+            "note-hover": "0 8px 30px rgba(0, 0, 0, 0.12)",
+          },
+        },
+      },
+      darkMode: 'class', // 启用暗黑模式
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .note-transition {
+        transition: all 0.3s ease;
+      }
+      .scale-hover {
+        transition: transform 0.2s ease;
+      }
+      .scale-hover:hover {
+        transform: scale(1.02);
+      }
+      .fade-in {
+        animation: fadeIn 0.3s ease-in-out;
+      }
+      .slide-up {
+        animation: slideUp 0.3s ease-out;
+      }
+      .slide-down {
+        animation: slideDown 0.3s ease-in;
+      }
+      .pulse-light {
+        animation: pulseLight 2s infinite;
+      }
+      .tag-item {
+        transition: all 0.2s ease;
+      }
+      .tag-item:hover {
+        transform: translateY(-1px);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes slideDown {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes pulseLight {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+      50% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-neutral-dark font-sans text-gray-800 dark:text-white min-h-screen flex flex-col transition-colors duration-300">
+  <!-- 顶部导航栏 -->
+  <header class="bg-white dark:bg-neutral-dark shadow-sm sticky top-0 z-50 transition-colors duration-300">
+    <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa fa-sticky-note-o text-primary text-2xl"></i>
+        <h1 class="text-xl md:text-2xl font-bold text-primary">笔记记录</h1>
+      </div>
+      <div class="flex items-center space-x-4">
+        <button id="searchBtn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          <i class="fa fa-search text-gray-600 dark:text-gray-300"></i>
+        </button>
+        <div class="relative hidden md:block" id="searchContainer">
+          <input type="text" id="searchInput" placeholder="搜索笔记..." 
+            class="py-2 pl-10 pr-4 rounded-full border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary w-48 md:w-64 bg-white dark:bg-gray-800 text-gray-800 dark:text-white">
+          <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"></i>
+        </div>
+        <button id="themeToggle" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          <i class="fa fa-moon-o text-gray-600 dark:hidden"></i>
+          <i class="fa fa-sun-o text-yellow-300 hidden dark:block"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容区 -->
+  <main class="flex-grow container mx-auto px-4 py-6">
+    <!-- 移动端菜单按钮 -->
+    <div class="md:hidden mb-4">
+      <button id="mobileMenuBtn" class="w-full py-2 px-4 bg-white dark:bg-neutral-dark rounded-lg shadow-sm flex justify-between items-center transition-colors duration-300">
+        <span class="font-medium">侧边栏</span>
+        <i class="fa fa-chevron-down text-gray-500 dark:text-gray-400"></i>
+      </button>
+    </div>
+
+    <div class="flex flex-col md:flex-row gap-6">
+      <!-- 侧边栏 -->
+      <div id="sidebar" class="w-full md:w-64 shrink-0 bg-white dark:bg-neutral-dark rounded-xl shadow-sm p-4 transition-all duration-300 md:block hidden transition-colors duration-300">
+        <div class="mb-6">
+          <button id="addNotebookBtn" class="w-full py-2 px-4 bg-primary text-white rounded-lg shadow-sm flex items-center justify-center space-x-2 hover:bg-primary/90 transition-colors">
+            <i class="fa fa-plus"></i>
+            <span>新建笔记本</span>
+          </button>
+        </div>
+
+        <div class="mb-6">
+          <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+            笔记本
+          </h3>
+          <ul id="notebooksList" class="space-y-1">
+            <!-- 笔记本列表会动态生成 -->
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+            标签
+          </h3>
+          <div class="flex flex-wrap gap-2" id="tagsList">
+            <span class="tag-item px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm cursor-pointer">#工作</span>
+            <span class="tag-item px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-sm cursor-pointer">#学习</span>
+            <span class="tag-item px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full text-sm cursor-pointer">#创意</span>
+            <span class="tag-item px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-full text-sm cursor-pointer">#生活</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 笔记内容区 -->
+      <div class="flex-grow">
+        <div class="flex justify-between items-center mb-6">
+          <h2 id="currentNotebookTitle" class="text-xl font-bold">默认笔记本</h2>
+          <div class="flex space-x-2">
+            <button id="viewToggle" class="p-2 rounded-lg bg-white dark:bg-neutral-dark shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <i class="fa fa-th-large text-gray-600 dark:text-gray-300"></i>
+            </button>
+            <button id="addNoteBtn" class="p-2 rounded-lg bg-primary text-white shadow-sm hover:bg-primary/90 transition-colors">
+              <i class="fa fa-plus"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 笔记列表 -->
+        <div id="notesGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- 笔记卡片会动态添加到这里 -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="bg-white dark:bg-neutral-dark py-4 border-t border-gray-200 dark:border-gray-800 transition-colors duration-300">
+    <div class="container mx-auto px-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+      <p>© 2025 笔记记录应用 | 一个美观的笔记记录工具</p>
+    </div>
+  </footer>
+
+    <!-- 添加笔记本模态框 -->
+    <div id="addNotebookModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden fade-in">
+      <div class="bg-white dark:bg-neutral-dark rounded-xl shadow-lg w-full max-w-md p-6 mx-4 slide-up transition-colors duration-300">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold">新建笔记本</h3>
+          <button id="closeNotebookModal" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-white">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        <div class="mb-4">
+          <label for="notebookName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">笔记本名称</label>
+          <input type="text" id="notebookName" 
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white dark:bg-gray-800 text-gray-800 dark:text-white">
+        </div>
+        <div class="flex justify-end space-x-2">
+          <button id="cancelNotebookBtn" class="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            取消
+          </button>
+          <button id="confirmNotebookBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+            创建
+          </button>
+        </div>
+      </div>
+    </div>
+  
+    <!-- 编辑笔记本模态框 -->
+    <div id="editNotebookModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden fade-in">
+      <div class="bg-white dark:bg-neutral-dark rounded-xl shadow-lg w-full max-w-md p-6 mx-4 slide-up transition-colors duration-300">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold">编辑笔记本</h3>
+          <button id="closeEditNotebookModal" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-white">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        <div class="mb-4">
+          <label for="editNotebookName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">笔记本名称</label>
+          <input type="text" id="editNotebookName" 
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white dark:bg-gray-800 text-gray-800 dark:text-white">
+        </div>
+        <div class="flex justify-end space-x-2">
+          <button id="cancelEditNotebookBtn" class="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            取消
+          </button>
+          <button id="confirmEditNotebookBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  
+    <!-- 删除笔记本确认模态框 -->
+    <div id="deleteNotebookModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden fade-in">
+      <div class="bg-white dark:bg-neutral-dark rounded-xl shadow-lg w-full max-w-md p-6 mx-4 slide-up transition-colors duration-300">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-red-600">删除笔记本</h3>
+          <button id="closeDeleteNotebookModal" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-white">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        <div class="mb-6">
+          <p class="text-gray-700 dark:text-gray-300">你确定要删除这个笔记本吗？所有相关笔记也将被删除。</p>
+          <p id="deleteNotebookName" class="mt-2 font-medium text-gray-900 dark:text-white"></p>
+        </div>
+        <div class="flex justify-end space-x-2">
+          <button id="cancelDeleteNotebookBtn" class="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            取消
+          </button>
+          <button id="confirmDeleteNotebookBtn" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+            删除
+          </button>
+        </div>
+      </div>
+    </div>
+  
+    <!-- 添加/编辑笔记模态框 -->
+    <div id="editNoteModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden fade-in">
+      <div class="bg-white dark:bg-neutral-dark rounded-xl shadow-lg w-full max-w-3xl p-6 mx-4 slide-up transition-colors duration-300 h-[80vh] flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="editNoteTitle" class="text-lg font-bold">新建笔记</h3>
+          <div class="flex space-x-2">
+            <button id="saveNoteBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+              保存
+            </button>
+            <button id="closeEditNoteModal" class="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              关闭
+            </button>
+          </div>
+        </div>
+        <div class="flex-grow overflow-auto">
+          <div class="mb-4">
+            <label for="editNoteTitleInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">标题</label>
+            <input type="text" id="editNoteTitleInput" 
+              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
+              placeholder="输入笔记标题...">
+          </div>
+          <div class="mb-4">
+            <label for="editNoteContent" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">内容</label>
+            <textarea id="editNoteContent" rows="15" 
+              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
+              placeholder="输入笔记内容..."></textarea>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">标签</label>
+            <div class="flex flex-wrap gap-2 mb-2" id="editNoteTags">
+              <!-- 标签会动态添加 -->
+            </div>
+            <div class="flex">
+              <input type="text" id="editNoteTagInput" 
+                class="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-l-lg focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
+                placeholder="添加标签...">
+              <button id="addEditNoteTagBtn" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-r-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                <i class="fa fa-plus"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+    <!-- 查看笔记模态框 -->
+    <div id="viewNoteModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden fade-in">
+      <div class="bg-white dark:bg-neutral-dark rounded-xl shadow-lg w-full max-w-3xl p-6 mx-4 slide-up transition-colors duration-300 h-[80vh] flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="viewNoteTitle" class="text-lg font-bold">笔记标题</h3>
+          <div class="flex space-x-2">
+            <button id="editViewNoteBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+              编辑
+            </button>
+            <button id="deleteViewNoteBtn" class="px-4 py-2 border border-red-300 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors">
+              删除
+            </button>
+            <button id="closeViewNoteModal" class="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              关闭
+            </button>
+          </div>
+        </div>
+        <div class="flex-grow overflow-auto">
+          <div id="viewNoteContent" class="prose max-w-none dark:prose-invert">
+            <!-- 笔记内容会在这里显示 -->
+          </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div class="flex flex-wrap gap-2" id="viewNoteTags">
+            <!-- 标签会动态添加 -->
+          </div>
+          <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            <span id="viewNoteDate">2025年6月9日 12:30</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+    <!-- 通知提示 -->
+    <div id="notification" class="fixed bottom-4 right-4 bg-green-500 dark:bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 fade-in hidden"></div>
+
+    <script>
+      // 应用状态管理
+      const state = {
+        notebooks: [],
+        currentNotebookId: null,
+        currentNoteId: null,
+        viewMode: 'grid', // 'grid' 或 'list'
+        isDarkMode: false,
+      };
+  
+      // DOM 元素
+      const elements = {
+        notebooksList: document.getElementById('notebooksList'),
+        notesGrid: document.getElementById('notesGrid'),
+        currentNotebookTitle: document.getElementById('currentNotebookTitle'),
+        addNotebookBtn: document.getElementById('addNotebookBtn'),
+        addNotebookModal: document.getElementById('addNotebookModal'),
+        closeNotebookModal: document.getElementById('closeNotebookModal'),
+        confirmNotebookBtn: document.getElementById('confirmNotebookBtn'),
+        notebookName: document.getElementById('notebookName'),
+        editNotebookModal: document.getElementById('editNotebookModal'),
+        closeEditNotebookModal: document.getElementById('closeEditNotebookModal'),
+        editNotebookName: document.getElementById('editNotebookName'),
+        confirmEditNotebookBtn: document.getElementById('confirmEditNotebookBtn'),
+        deleteNotebookModal: document.getElementById('deleteNotebookModal'),
+        closeDeleteNotebookModal: document.getElementById('closeDeleteNotebookModal'),
+        deleteNotebookName: document.getElementById('deleteNotebookName'),
+        confirmDeleteNotebookBtn: document.getElementById('confirmDeleteNotebookBtn'),
+        addNoteBtn: document.getElementById('addNoteBtn'),
+        editNoteModal: document.getElementById('editNoteModal'),
+        closeEditNoteModal: document.getElementById('closeEditNoteModal'),
+        saveNoteBtn: document.getElementById('saveNoteBtn'),
+        editNoteTitle: document.getElementById('editNoteTitle'),
+        editNoteTitleInput: document.getElementById('editNoteTitleInput'),
+        editNoteContent: document.getElementById('editNoteContent'),
+        editNoteTags: document.getElementById('editNoteTags'),
+        editNoteTagInput: document.getElementById('editNoteTagInput'),
+        addEditNoteTagBtn: document.getElementById('addEditNoteTagBtn'),
+        viewNoteModal: document.getElementById('viewNoteModal'),
+        closeViewNoteModal: document.getElementById('closeViewNoteModal'),
+        viewNoteTitle: document.getElementById('viewNoteTitle'),
+        viewNoteContent: document.getElementById('viewNoteContent'),
+        viewNoteTags: document.getElementById('viewNoteTags'),
+        viewNoteDate: document.getElementById('viewNoteDate'),
+        editViewNoteBtn: document.getElementById('editViewNoteBtn'),
+        deleteViewNoteBtn: document.getElementById('deleteViewNoteBtn'),
+        mobileMenuBtn: document.getElementById('mobileMenuBtn'),
+        sidebar: document.getElementById('sidebar'),
+        searchBtn: document.getElementById('searchBtn'),
+        searchContainer: document.getElementById('searchContainer'),
+        searchInput: document.getElementById('searchInput'),
+        viewToggle: document.getElementById('viewToggle'),
+        themeToggle: document.getElementById('themeToggle'),
+        notification: document.getElementById('notification'),
+        tagsList: document.getElementById('tagsList'),
+      };
+  
+      // 初始化应用
+      function initApp() {
+        // 从本地存储加载数据
+        loadData();
+        
+        // 如果没有笔记本，创建一个默认笔记本
+        if (state.notebooks.length === 0) {
+          createDefaultNotebook();
+        } else {
+          // 否则使用第一个笔记本作为当前笔记本
+          state.currentNotebookId = state.notebooks[0].id;
+        }
+        
+        // 渲染界面
+        renderNotebooks();
+        renderNotes();
+        
+        // 设置事件监听器
+        setupEventListeners();
+        
+        // 检查并应用暗黑模式
+        applyDarkMode();
+      }
+  
+      // 从本地存储加载数据
+      function loadData() {
+        const savedData = localStorage.getItem('noteAppData');
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          state.notebooks = parsedData.notebooks || [];
+          state.currentNotebookId = parsedData.currentNotebookId;
+          state.viewMode = parsedData.viewMode || 'grid';
+          state.isDarkMode = parsedData.isDarkMode || false;
+        }
+      }
+  
+      // 保存数据到本地存储
+      function saveData() {
+        const dataToSave = {
+          notebooks: state.notebooks,
+          currentNotebookId: state.currentNotebookId,
+          viewMode: state.viewMode,
+          isDarkMode: state.isDarkMode,
+        };
+        localStorage.setItem('noteAppData', JSON.stringify(dataToSave));
+      }
+  
+      // 创建默认笔记本
+      function createDefaultNotebook() {
+        const defaultNotebook = {
+          id: Date.now(),
+          name: '默认笔记本',
+          notes: [
+            {
+              id: Date.now(),
+              title: '欢迎使用笔记应用',
+              content: '这是一个示例笔记，你可以创建新的笔记、编辑或删除现有笔记。\n\n使用侧边栏可以管理不同的笔记本，每个笔记本可以包含多个笔记。\n\n点击右上角的"新建笔记"按钮开始你的第一个笔记吧！',
+              tags: ['欢迎', '教程'],
+              createdAt: new Date().toISOString(),
+            }
+          ],
+        };
+        state.notebooks.push(defaultNotebook);
+        state.currentNotebookId = defaultNotebook.id;
+        saveData();
+      }
+  
+      // 渲染笔记本列表
+      function renderNotebooks() {
+        elements.notebooksList.innerHTML = '';
+        
+        state.notebooks.forEach(notebook => {
+          const isActive = notebook.id === state.currentNotebookId;
+          
+          const notebookElement = document.createElement('li');
+          notebookElement.className = 'relative';
+          notebookElement.innerHTML = `
+            <button class="notebook-item w-full py-2 px-3 rounded-lg ${isActive ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-800'} font-medium flex items-center justify-between transition-colors duration-200">
+              <span class="flex items-center">
+                <i class="fa fa-book mr-2"></i>
+                <span>${notebook.name}</span>
+              </span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">${notebook.notes.length}</span>
+            </button>
+            <div class="absolute right-0 top-0 mt-8 mr-2 bg-white dark:bg-neutral-dark rounded-lg shadow-lg z-10 hidden notebook-menu transition-all duration-200" data-notebook-id="${notebook.id}">
+              <button class="edit-notebook w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-lg transition-colors">
+                <i class="fa fa-pencil mr-2"></i>编辑
+              </button>
+              <button class="delete-notebook w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-b-lg transition-colors">
+                <i class="fa fa-trash mr-2"></i>删除
+              </button>
+            </div>
+          `;
+          
+          elements.notebooksList.appendChild(notebookElement);
+          
+          // 为笔记本添加点击事件
+          const notebookBtn = notebookElement.querySelector('.notebook-item');
+          notebookBtn.addEventListener('click', () => {
+            setCurrentNotebook(notebook.id);
+          });
+          
+          // 为菜单图标添加点击事件
+          notebookBtn.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            
+            // 关闭所有其他菜单
+            document.querySelectorAll('.notebook-menu').forEach(menu => {
+              menu.classList.add('hidden');
+            });
+            
+            // 打开当前菜单
+            const menu = notebookElement.querySelector('.notebook-menu');
+            menu.classList.toggle('hidden');
+          });
+          
+          // 为编辑按钮添加点击事件
+          const editBtn = notebookElement.querySelector('.edit-notebook');
+          editBtn.addEventListener('click', () => {
+            // 关闭所有菜单
+            document.querySelectorAll('.notebook-menu').forEach(menu => {
+              menu.classList.add('hidden');
+            });
+            
+            // 打开编辑模态框
+            elements.editNotebookName.value = notebook.name;
+            state.currentNotebookId = notebook.id;
+            elements.editNotebookModal.classList.remove('hidden');
+          });
+          
+          // 为删除按钮添加点击事件
+          const deleteBtn = notebookElement.querySelector('.delete-notebook');
+          deleteBtn.addEventListener('click', () => {
+            // 关闭所有菜单
+            document.querySelectorAll('.notebook-menu').forEach(menu => {
+              menu.classList.add('hidden');
+            });
+            
+            // 打开删除确认模态框
+            elements.deleteNotebookName.textContent = notebook.name;
+            state.currentNotebookId = notebook.id;
+            elements.deleteNotebookModal.classList.remove('hidden');
+          });
+        });
+        
+        // 点击页面其他地方关闭所有菜单
+        document.addEventListener('click', (e) => {
+          if (!e.target.closest('.notebook-item')) {
+            document.querySelectorAll('.notebook-menu').forEach(menu => {
+              menu.classList.add('hidden');
+            });
+          }
+        });
+      }
+  
+      // 设置当前笔记本
+      function setCurrentNotebook(id) {
+        state.currentNotebookId = id;
+        renderNotebooks();
+        elements.currentNotebookTitle.textContent = getCurrentNotebook().name;
+        renderNotes();
+        saveData();
+        
+        // 在移动端自动关闭侧边栏
+        if (window.innerWidth < 768) {
+          elements.sidebar.classList.add('hidden');
+        }
+      }
+  
+      // 获取当前笔记本
+      function getCurrentNotebook() {
+        return state.notebooks.find(notebook => notebook.id === state.currentNotebookId);
+      }
+  
+      // 获取当前笔记
+      function getCurrentNote() {
+        const currentNotebook = getCurrentNotebook();
+        return currentNotebook.notes.find(note => note.id === state.currentNoteId);
+      }
+  
+      // 渲染笔记列表
+      function renderNotes(filteredNotes = null) {
+        const currentNotebook = getCurrentNotebook();
+        const notesToRender = filteredNotes || currentNotebook.notes;
+        
+        elements.notesGrid.innerHTML = '';
+        
+        if (notesToRender.length === 0) {
+          elements.notesGrid.innerHTML = `
+            <div class="col-span-full flex flex-col items-center justify-center py-12 text-center">
+              <i class="fa fa-sticky-note-o text-gray-300 dark:text-gray-600 text-5xl mb-4"></i>
+              <p class="text-gray-500 dark:text-gray-400">暂无笔记</p>
+              <button id="createFirstNoteBtn" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                创建第一条笔记
+              </button>
+            </div>
+          `;
+          document.getElementById('createFirstNoteBtn').addEventListener('click', openAddNoteModal);
+          return;
+        }
+        
+        // 按创建时间排序，最新的在前
+        notesToRender.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .forEach(note => {
+            const noteElement = document.createElement('div');
+            
+            // 根据视图模式设置不同的样式
+            if (state.viewMode === 'grid') {
+              noteElement.className = 'bg-white dark:bg-neutral-dark rounded-xl shadow-note p-4 note-transition scale-hover cursor-pointer transition-colors duration-300';
+              noteElement.innerHTML = getNoteCardHtml(note);
+            } else {
+              noteElement.className = 'bg-white dark:bg-neutral-dark rounded-lg shadow-note p-3 note-transition cursor-pointer transition-colors duration-300';
+              noteElement.innerHTML = getNoteListItemHtml(note);
+            }
+            
+            noteElement.dataset.noteId = note.id;
+            noteElement.addEventListener('click', (e) => {
+              // 防止点击标签时触发
+              if (!e.target.closest('.tag-item')) {
+                openViewNoteModal(note.id);
+              }
+            });
+            
+            elements.notesGrid.appendChild(noteElement);
+          });
+      }
+  
+      // 获取笔记卡片HTML
+      function getNoteCardHtml(note) {
+        // 格式化日期
+        const date = new Date(note.createdAt);
+        const formattedDate = date.toLocaleDateString('zh-CN', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        
+        // 提取内容预览
+        let contentPreview = note.content.substring(0, 100);
+        if (note.content.length > 100) {
+          contentPreview += '...';
+        }
+        
+        return `
+          <div class="mb-2">
+            <h3 class="font-medium text-lg mb-1">${note.title || '无标题'}</h3>
+            <p class="text-gray-500 dark:text-gray-400 text-sm">${formattedDate}</p>
+          </div>
+          <p class="text-gray-600 dark:text-gray-300 mb-3">${contentPreview}</p>
+          <div class="flex flex-wrap gap-2">
+            ${note.tags.map(tag => `
+              <span class="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full text-xs">
+                ${tag}
+              </span>
+            `).join('')}
+          </div>
+        `;
+      }
+  
+      // 获取笔记列表项HTML
+      function getNoteListItemHtml(note) {
+        // 格式化日期
+        const date = new Date(note.createdAt);
+        const formattedDate = date.toLocaleDateString('zh-CN', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        
+        return `
+          <div class="flex">
+            <div class="flex-shrink-0 mr-3 pt-1">
+              <i class="fa fa-file-text-o text-gray-400 dark:text-gray-500"></i>
+            </div>
+            <div class="flex-grow">
+              <h3 class="font-medium ${note.title ? '' : 'text-gray-500 dark:text-gray-400 italic'}">${note.title || '无标题'}</h3>
+              <p class="text-sm text-gray-500 dark:text-gray-400">${formattedDate}</p>
+            </div>
+          </div>
+        `;
+      }
+  
+      // 打开添加笔记模态框
+      function openAddNoteModal() {
+        state.currentNoteId = null;
+        elements.editNoteTitle.textContent = '新建笔记';
+        elements.editNoteTitleInput.value = '';
+        elements.editNoteContent.value = '';
+        elements.editNoteTags.innerHTML = '';
+        elements.editNoteModal.classList.remove('hidden');
+        elements.editNoteTitleInput.focus();
+      }
+  
+      // 打开查看笔记模态框
+      function openViewNoteModal(id) {
+        state.currentNoteId = id;
+        const note = getCurrentNote();
+        
+        // 设置标题
+        elements.viewNoteTitle.textContent = note.title || '无标题';
+        
+        // 设置内容
+        elements.viewNoteContent.textContent = note.content;
+        
+        // 设置标签
+        elements.viewNoteTags.innerHTML = '';
+        note.tags.forEach(tag => {
+          const tagElement = document.createElement('span');
+          tagElement.className = 'tag-item px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full text-sm';
+          tagElement.textContent = tag;
+          elements.viewNoteTags.appendChild(tagElement);
+        });
+        
+        // 设置日期
+        const date = new Date(note.createdAt);
+        elements.viewNoteDate.textContent = date.toLocaleDateString('zh-CN', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        
+        // 显示模态框
+        elements.viewNoteModal.classList.remove('hidden');
+      }
+  
+      // 添加标签
+      function addTag(tag) {
+        if (!tag.trim()) return;
+        
+        const tagElement = document.createElement('span');
+        tagElement.className = 'flex items-center px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full text-sm mr-2 mb-2';
+        tagElement.innerHTML = `
+          ${tag}
+          <button class="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <i class="fa fa-times-circle"></i>
+          </button>
+        `;
+        
+        // 添加删除标签事件
+        tagElement.querySelector('button').addEventListener('click', () => {
+          tagElement.remove();
+        });
+        
+        elements.editNoteTags.appendChild(tagElement);
+        elements.editNoteTagInput.value = '';
+      }
+  
+      // 获取编辑中的标签
+      function getTags() {
+        const tags = [];
+        elements.editNoteTags.querySelectorAll('span').forEach(tagElement => {
+          tags.push(tagElement.textContent.trim());
+        });
+        return tags;
+      }
+  
+      // 保存笔记
+      function saveNote() {
+        const title = elements.editNoteTitleInput.value.trim();
+        const content = elements.editNoteContent.value.trim();
+        const tags = getTags();
+        
+        if (!title && !content) {
+          showNotification('笔记标题和内容不能为空', 'error');
+          return;
+        }
+        
+        const currentNotebook = getCurrentNotebook();
+        
+        if (state.currentNoteId) {
+          // 编辑现有笔记
+          const noteIndex = currentNotebook.notes.findIndex(note => note.id === state.currentNoteId);
+          if (noteIndex !== -1) {
+            currentNotebook.notes[noteIndex] = {
+              ...currentNotebook.notes[noteIndex],
+              title,
+              content,
+              tags,
+              updatedAt: new Date().toISOString(),
+            };
+            showNotification('笔记已更新', 'success');
+          }
+        } else {
+          // 创建新笔记
+          const newNote = {
+            id: Date.now(),
+            title,
+            content,
+            tags,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          currentNotebook.notes.push(newNote);
+          showNotification('笔记已创建', 'success');
+        }
+        
+        saveData();
+        renderNotes();
+        elements.editNoteModal.classList.add('hidden');
+      }
+  
+      // 删除笔记
+      function deleteNote() {
+        const currentNotebook = getCurrentNotebook();
+        const noteIndex = currentNotebook.notes.findIndex(note => note.id === state.currentNoteId);
+        
+        if (noteIndex !== -1) {
+          const noteTitle = currentNotebook.notes[noteIndex].title || '无标题';
+          currentNotebook.notes.splice(noteIndex, 1);
+          saveData();
+          renderNotes();
+          elements.viewNoteModal.classList.add('hidden');
+          showNotification(`已删除笔记: ${noteTitle}`, 'success');
+        }
+      }
+  
+      // 创建新笔记本
+      function createNotebook() {
+        const name = elements.notebookName.value.trim();
+        
+        if (!name) {
+          showNotification('笔记本名称不能为空', 'error');
+          return;
+        }
+        
+        // 检查是否已存在同名笔记本
+        const exists = state.notebooks.some(notebook => notebook.name.toLowerCase() === name.toLowerCase());
+        if (exists) {
+          showNotification('已存在同名笔记本', 'error');
+          return;
+        }
+        
+        const newNotebook = {
+          id: Date.now(),
+          name,
+          notes: [],
+        };
+        
+        state.notebooks.push(newNotebook);
+        state.currentNotebookId = newNotebook.id;
+        saveData();
+        renderNotebooks();
+        elements.currentNotebookTitle.textContent = name;
+        renderNotes();
+        elements.addNotebookModal.classList.add('hidden');
+        elements.notebookName.value = '';
+        
+        showNotification(`已创建笔记本: ${name}`, 'success');
+      }
+  
+      // 编辑笔记本
+      function editNotebook() {
+        const name = elements.editNotebookName.value.trim();
+        
+        if (!name) {
+          showNotification('笔记本名称不能为空', 'error');
+          return;
+        }
+        
+        // 检查是否已存在同名笔记本（排除当前笔记本）
+        const exists = state.notebooks.some(notebook => 
+          notebook.id !== state.currentNotebookId && 
+          notebook.name.toLowerCase() === name.toLowerCase()
+        );
+        
+        if (exists) {
+          showNotification('已存在同名笔记本', 'error');
+          return;
+        }
+        
+        const notebookIndex = state.notebooks.findIndex(notebook => notebook.id === state.currentNotebookId);
+        
+        if (notebookIndex !== -1) {
+          const oldName = state.notebooks[notebookIndex].name;
+          state.notebooks[notebookIndex].name = name;
+          
+          if (state.currentNotebookId === state.notebooks[notebookIndex].id) {
+            elements.currentNotebookTitle.textContent = name;
+          }
+          
+          saveData();
+          renderNotebooks();
+          elements.editNotebookModal.classList.add('hidden');
+          
+          showNotification(`已将笔记本"${oldName}"重命名为"${name}"`, 'success');
+        }
+      }
+  
+      // 删除笔记本
+      function deleteNotebook() {
+        const notebookIndex = state.notebooks.findIndex(notebook => notebook.id === state.currentNotebookId);
+        
+        if (notebookIndex !== -1) {
+          const notebookName = state.notebooks[notebookIndex].name;
+          
+          // 如果这是最后一个笔记本，创建一个新的默认笔记本
+          if (state.notebooks.length === 1) {
+            createDefaultNotebook();
+          } else {
+            // 否则选择前一个笔记本
+            const newIndex = notebookIndex > 0 ? notebookIndex - 1 : notebookIndex + 1;
+            state.currentNotebookId = state.notebooks[newIndex].id;
+          }
+          
+          // 删除当前笔记本
+          state.notebooks.splice(notebookIndex, 1);
+          
+          saveData();
+          renderNotebooks();
+          elements.currentNotebookTitle.textContent = getCurrentNotebook().name;
+          renderNotes();
+          elements.deleteNotebookModal.classList.add('hidden');
+          
+          showNotification(`已删除笔记本: ${notebookName}`, 'success');
+        }
+      }
+  
+      // 搜索笔记
+      function searchNotes(query) {
+        if (!query.trim()) {
+          renderNotes(); // 如果查询为空，显示所有笔记
+          return;
+        }
+        
+        const currentNotebook = getCurrentNotebook();
+        const filteredNotes = currentNotebook.notes.filter(note => 
+          note.title.toLowerCase().includes(query.toLowerCase()) || 
+          note.content.toLowerCase().includes(query.toLowerCase()) ||
+          note.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()))
+        );
+        
+        renderNotes(filteredNotes);
+      }
+  
+      // 切换视图模式
+      function toggleViewMode() {
+        state.viewMode = state.viewMode === 'grid' ? 'list' : 'grid';
+        saveData();
+        
+        // 更新视图切换按钮图标
+        elements.viewToggle.innerHTML = state.viewMode === 'grid' ? 
+          '<i class="fa fa-th-large text-gray-600 dark:text-gray-300"></i>' : 
+          '<i class="fa fa-list text-gray-600 dark:text-gray-300"></i>';
+        
+        renderNotes();
+      }
+  
+      // 切换暗黑模式
+      function toggleDarkMode() {
+        state.isDarkMode = !state.isDarkMode;
+        saveData();
+        applyDarkMode();
+      }
+  
+      // 应用暗黑模式
+      function applyDarkMode() {
+        if (state.isDarkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }
+  
+      // 显示通知
+      function showNotification(message, type = 'success') {
+        elements.notification.textContent = message;
+        elements.notification.className = 'fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 fade-in';
+        
+        if (type === 'success') {
+          elements.notification.classList.add('bg-green-500', 'dark:bg-green-600');
+        } else {
+          elements.notification.classList.add('bg-red-500', 'dark:bg-red-600');
+        }
+        
+        elements.notification.classList.remove('hidden');
+        
+        // 3秒后自动隐藏
+        setTimeout(() => {
+          elements.notification.classList.add('hidden');
+        }, 3000);
+      }
+  
+      // 设置事件监听器
+      function setupEventListeners() {
+        // 笔记本相关事件
+        elements.addNotebookBtn.addEventListener('click', () => {
+          elements.addNotebookModal.classList.remove('hidden');
+          elements.notebookName.focus();
+        });
+        
+        elements.closeNotebookModal.addEventListener('click', () => {
+          elements.addNotebookModal.classList.add('hidden');
+        });
+        
+        elements.confirmNotebookBtn.addEventListener('click', createNotebook);
+        
+        elements.closeEditNotebookModal.addEventListener('click', () => {
+          elements.editNotebookModal.classList.add('hidden');
+        });
+        
+        elements.confirmEditNotebookBtn.addEventListener('click', editNotebook);
+        
+        elements.closeDeleteNotebookModal.addEventListener('click', () => {
+          elements.deleteNotebookModal.classList.add('hidden');
+        });
+        
+        elements.confirmDeleteNotebookBtn.addEventListener('click', deleteNotebook);
+        
+        // 笔记相关事件
+        elements.addNoteBtn.addEventListener('click', openAddNoteModal);
+        
+        elements.closeEditNoteModal.addEventListener('click', () => {
+          elements.editNoteModal.classList.add('hidden');
+        });
+        
+        elements.saveNoteBtn.addEventListener('click', saveNote);
+        
+        elements.closeViewNoteModal.addEventListener('click', () => {
+          elements.viewNoteModal.classList.add('hidden');
+        });
+        
+        elements.editViewNoteBtn.addEventListener('click', () => {
+          elements.viewNoteModal.classList.add('hidden');
+          
+          const note = getCurrentNote();
+          elements.editNoteTitle.textContent = '编辑笔记';
+          elements.editNoteTitleInput.value = note.title || '';
+          elements.editNoteContent.value = note.content || '';
+          
+          // 渲染标签
+          elements.editNoteTags.innerHTML = '';
+          note.tags.forEach(tag => addTag(tag));
+          
+          elements.editNoteModal.classList.remove('hidden');
+          elements.editNoteTitleInput.focus();
+        });
+        
+        elements.deleteViewNoteBtn.addEventListener('click', deleteNote);
+        
+        // 标签相关事件
+        elements.addEditNoteTagBtn.addEventListener('click', () => {
+          const tag = elements.editNoteTagInput.value.trim();
+          if (tag) addTag(tag);
+        });
+        
+        elements.editNoteTagInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            const tag = elements.editNoteTagInput.value.trim();
+            if (tag) addTag(tag);
+          }
+        });
+        
+        // 移动端菜单
+        elements.mobileMenuBtn.addEventListener('click', () => {
+          elements.sidebar.classList.toggle('hidden');
+        });
+        
+        // 搜索相关
+        elements.searchBtn.addEventListener('click', () => {
+          elements.searchContainer.classList.toggle('hidden');
+          if (!elements.searchContainer.classList.contains('hidden')) {
+            elements.searchInput.focus();
+          }
+        });
+        
+        elements.searchInput.addEventListener('input', (e) => {
+          searchNotes(e.target.value);
+        });
+        
+        // 视图切换
+        elements.viewToggle.addEventListener('click', toggleViewMode);
+        
+        // 暗黑模式切换
+        elements.themeToggle.addEventListener('click', toggleDarkMode);
+        
+        // 标签点击事件
+        elements.tagsList.addEventListener('click', (e) => {
+          if (e.target.closest('.tag-item')) {
+            const tag = e.target.closest('.tag-item').textContent.trim().replace('#', '');
+            searchNotes(tag);
+          }
+        });
+        
+        // 点击模态框外部关闭模态框
+        document.addEventListener('click', (e) => {
+          if (e.target === elements.addNotebookModal) {
+            elements.addNotebookModal.classList.add('hidden');
+          }
+          if (e.target === elements.editNotebookModal) {
+            elements.editNotebookModal.classList.add('hidden');
+          }
+          if (e.target === elements.deleteNotebookModal) {
+            elements.deleteNotebookModal.classList.add('hidden');
+          }
+          if (e.target === elements.editNoteModal) {
+            elements.editNoteModal.classList.add('hidden');
+          }
+          if (e.target === elements.viewNoteModal) {
+            elements.viewNoteModal.classList.add('hidden');
+          }
+        });
+        
+        // ESC键关闭模态框
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            elements.addNotebookModal.classList.add('hidden');
+            elements.editNotebookModal.classList.add('hidden');
+            elements.deleteNotebookModal.classList.add('hidden');
+            elements.editNoteModal.classList.add('hidden');
+            elements.viewNoteModal.classList.add('hidden');
+          }
+        });
+      }
+  
+      // 当DOM加载完成后初始化应用
+      document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+  </body>
+  </html>
+
+    <!-- 页面加载动画 -->
+    <div id="pageLoader" class="fixed inset-0 bg-white dark:bg-neutral-dark flex items-center justify-center z-50 transition-opacity duration-500">
+      <div class="flex flex-col items-center">
+        <div class="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <p class="mt-4 text-primary font-medium">加载中...</p>
+      </div>
+    </div>
+  
+    <script>
+      // 页面加载完成后隐藏加载动画
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const loader = document.getElementById('pageLoader');
+          loader.classList.add('opacity-0');
+          setTimeout(() => {
+            loader.classList.add('hidden');
+          }, 500);
+        }, 300);
+      });
+  
+      // 添加键盘快捷键
+      document.addEventListener('keydown', (e) => {
+        // Ctrl/Cmd + N 创建新笔记
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+          e.preventDefault();
+          openAddNoteModal();
+        }
+        
+        // Ctrl/Cmd + S 保存笔记
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          if (!elements.editNoteModal.classList.contains('hidden')) {
+            saveNote();
+          }
+        }
+        
+        // Ctrl/Cmd + / 聚焦搜索框
+        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+          e.preventDefault();
+          elements.searchContainer.classList.remove('hidden');
+          elements.searchInput.focus();
+        }
+      });
+  
+      // 自动保存草稿功能
+      function saveDraft() {
+        if (elements.editNoteModal.classList.contains('hidden')) return;
+        
+        const title = elements.editNoteTitleInput.value.trim();
+        const content = elements.editNoteContent.value.trim();
+        
+        if (!title && !content) {
+          localStorage.removeItem('noteDraft');
+          return;
+        }
+        
+        const draft = {
+          title,
+          content,
+          tags: getTags(),
+          timestamp: new Date().toISOString(),
+        };
+        
+        localStorage.setItem('noteDraft', JSON.stringify(draft));
+      }
+  
+      // 加载草稿
+      function loadDraft() {
+        const draft = localStorage.getItem('noteDraft');
+        if (draft) {
+          const parsedDraft = JSON.parse(draft);
+          elements.editNoteTitleInput.value = parsedDraft.title || '';
+          elements.editNoteContent.value = parsedDraft.content || '';
+          
+          // 渲染标签
+          elements.editNoteTags.innerHTML = '';
+          (parsedDraft.tags || []).forEach(tag => addTag(tag));
+          
+          // 草稿超过1小时自动清除
+          const draftTime = new Date(parsedDraft.timestamp);
+          const currentTime = new Date();
+          const timeDiff = (currentTime - draftTime) / (1000 * 60 * 60); // 小时
+          
+          if (timeDiff > 1) {
+            localStorage.removeItem('noteDraft');
+          }
+        }
+      }
+  
+      // 编辑笔记模态框显示时加载草稿
+      elements.editNoteModal.addEventListener('show', loadDraft);
+      
+      // 定期保存草稿
+      setInterval(saveDraft, 10000); // 每10秒保存一次
+      
+      // 保存成功后清除草稿
+      elements.saveNoteBtn.addEventListener('click', () => {
+        localStorage.removeItem('noteDraft');
+      });
+  
+      // 添加笔记排序功能
+      function sortNotes(sortType) {
+        const currentNotebook = getCurrentNotebook();
+        
+        switch(sortType) {
+          case 'newest':
+            currentNotebook.notes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            break;
+          case 'oldest':
+            currentNotebook.notes.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            break;
+          case 'az':
+            currentNotebook.notes.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+            break;
+          case 'za':
+            currentNotebook.notes.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
+            break;
+        }
+        
+        saveData();
+        renderNotes();
+      }
+  
+      // 添加排序下拉菜单
+      const sortMenu = document.createElement('div');
+      sortMenu.className = 'relative ml-2';
+      sortMenu.innerHTML = `
+        <button id="sortBtn" class="p-2 rounded-lg bg-white dark:bg-neutral-dark shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center">
+          <i class="fa fa-sort text-gray-600 dark:text-gray-300 mr-1"></i>
+          <span class="text-sm">排序</span>
+        </button>
+        <div id="sortDropdown" class="absolute right-0 mt-2 w-48 bg-white dark:bg-neutral-dark rounded-lg shadow-lg hidden z-10">
+          <button data-sort="newest" class="sort-option w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-lg transition-colors">
+            <i class="fa fa-check mr-2 opacity-0"></i>最新创建
+          </button>
+          <button data-sort="oldest" class="sort-option w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            <i class="fa fa-check mr-2 opacity-0"></i>最早创建
+          </button>
+          <button data-sort="az" class="sort-option w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            <i class="fa fa-check mr-2 opacity-0"></i>标题 A-Z
+          </button>
+          <button data-sort="za" class="sort-option w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 rounded-b-lg transition-colors">
+            <i class="fa fa-check mr-2 opacity-0"></i>标题 Z-A
+          </button>
+        </div>
+      `;
+      
+      // 将排序菜单添加到工具栏
+      elements.addNoteBtn.parentNode.insertBefore(sortMenu, elements.addNoteBtn.nextSibling);
+      
+      // 排序按钮点击事件
+      document.getElementById('sortBtn').addEventListener('click', () => {
+        document.getElementById('sortDropdown').classList.toggle('hidden');
+      });
+      
+      // 排序选项点击事件
+      document.querySelectorAll('.sort-option').forEach(option => {
+        option.addEventListener('click', () => {
+          const sortType = option.getAttribute('data-sort');
+          sortNotes(sortType);
+          
+          // 更新选中状态
+          document.querySelectorAll('.sort-option i').forEach(icon => {
+            icon.classList.add('opacity-0');
+          });
+          option.querySelector('i').classList.remove('opacity-0');
+          
+          document.getElementById('sortDropdown').classList.add('hidden');
+        });
+      });
+      
+      // 默认选中最新创建
+      document.querySelector('[data-sort="newest"] i').classList.remove('opacity-0');
+      
+      // 点击页面其他地方关闭排序菜单
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#sortMenu')) {
+          document.getElementById('sortDropdown').classList.add('hidden');
+        }
+      });
+  
+      // 添加笔记内容格式化支持
+      function formatContent(content) {
+        // 转换换行符为<br>
+        content = content.replace(/\n/g, '<br>');
+        
+        // 转换粗体标记 **text**
+        content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        // 转换斜体标记 *text*
+        content = content.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        // 转换链接标记 [text](url)
+        content = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+        
+        return content;
+      }
+  
+      // 更新笔记内容显示
+      const originalOpenViewNoteModal = openViewNoteModal;
+      openViewNoteModal = function(id) {
+        originalOpenViewNoteModal(id);
+        elements.viewNoteContent.innerHTML = formatContent(getCurrentNote().content);
+      };
+  
+      // 添加笔记格式化工具栏
+      const formatToolbar = document.createElement('div');
+      formatToolbar.className = 'flex mb-2 space-x-1';
+      formatToolbar.innerHTML = `
+        <button title="粗体 (Ctrl+B)" class="format-btn p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+          <i class="fa fa-bold"></i>
+        </button>
+        <button title="斜体 (Ctrl+I)" class="format-btn p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+          <i class="fa fa-italic"></i>
+        </button>
+        <button title="链接 (Ctrl+L)" class="format-btn p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+          <i class="fa fa-link"></i>
+        </button>
+        <button title="列表 (Ctrl+U)" class="format-btn p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+          <i class="fa fa-list-ul"></i>
+        </button>
+        <button title="引用 (Ctrl+Q)" class="format-btn p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors">
+          <i class="fa fa-quote-left"></i>
+        </button>
+      `;
+      
+      // 将格式化工具栏添加到内容输入框上方
+      elements.editNoteContent.parentNode.insertBefore(formatToolbar, elements.editNoteContent);
+      
+      // 格式化按钮点击事件
+      document.querySelectorAll('.format-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const editor = elements.editNoteContent;
+          const selectionStart = editor.selectionStart;
+          const selectionEnd = editor.selectionEnd;
+          const selectedText = editor.value.substring(selectionStart, selectionEnd);
+          
+          let formatMarkup = '';
+          let cursorOffset = 0;
+          
+          switch(btn.querySelector('i').classList[1]) {
+            case 'fa-bold':
+              formatMarkup = `**${selectedText || '粗体文本'}**`;
+              cursorOffset = selectedText ? 0 : 2;
+              break;
+            case 'fa-italic':
+              formatMarkup = `*${selectedText || '斜体文本'}*`;
+              cursorOffset = selectedText ? 0 : 1;
+              break;
+            case 'fa-link':
+              formatMarkup = `[${selectedText || '链接文本'}](https://)`;
+              cursorOffset = selectedText ? 0 : 12;
+              break;
+            case 'fa-list-ul':
+              const lines = selectedText.split('\n');
+              const formattedLines = lines.map(line => `- ${line}`).join('\n');
+              formatMarkup = formattedLines || '- 列表项';
+              cursorOffset = selectedText ? 0 : 4;
+              break;
+            case 'fa-quote-left':
+              const quoteLines = selectedText.split('\n');
+              const formattedQuote = quoteLines.map(line => `> ${line}`).join('\n');
+              formatMarkup = formattedQuote || '> 引用文本';
+              cursorOffset = selectedText ? 0 : 3;
+              break;
+          }
+          
+          // 更新文本框内容
+          editor.value = 
+            editor.value.substring(0, selectionStart) + 
+            formatMarkup + 
+            editor.value.substring(selectionEnd);
+          
+          // 恢复光标位置
+          const newCursorPos = selectionStart + formatMarkup.length - cursorOffset;
+          editor.focus();
+          editor.setSelectionRange(newCursorPos, newCursorPos);
+        });
+      });
+      
+      // 添加键盘快捷键支持
+      elements.editNoteContent.addEventListener('keydown', (e) => {
+        if (e.ctrlKey) {
+          const editor = elements.editNoteContent;
+          const selectionStart = editor.selectionStart;
+          const selectionEnd = editor.selectionEnd;
+          const selectedText = editor.value.substring(selectionStart, selectionEnd);
+          
+          switch(e.key.toLowerCase()) {
+            case 'b':
+              e.preventDefault();
+              const boldText = `**${selectedText || '粗体文本'}**`;
+              editor.value = 
+                editor.value.substring(0, selectionStart) + 
+                boldText + 
+                editor.value.substring(selectionEnd);
+              editor.focus();
+              editor.setSelectionRange(
+                selectionStart + boldText.length - (selectedText ? 0 : 2),
+                selectionStart + boldText.length - (selectedText ? 0 : 2)
+              );
+              break;
+            case 'i':
+              e.preventDefault();
+              const italicText = `*${selectedText || '斜体文本'}*`;
+              editor.value = 
+                editor.value.substring(0, selectionStart) + 
+                italicText + 
+                editor.value.substring(selectionEnd);
+              editor.focus();
+              editor.setSelectionRange(
+                selectionStart + italicText.length - (selectedText ? 0 : 1),
+                selectionStart + italicText.length - (selectedText ? 0 : 1)
+              );
+              break;
+            case 'l':
+              e.preventDefault();
+              const linkText = `[${selectedText || '链接文本'}](https://)`;
+              editor.value = 
+                editor.value.substring(0, selectionStart) + 
+                linkText + 
+                editor.value.substring(selectionEnd);
+              editor.focus();
+              editor.setSelectionRange(
+                selectionStart + linkText.length - (selectedText ? 0 : 12),
+                selectionStart + linkText.length - (selectedText ? 0 : 12)
+              );
+              break;
+          }
+        }
+      });
+  
+      // 添加笔记导出功能
+      function exportNote() {
+        const note = getCurrentNote();
+        if (!note) return;
+        
+        const content = `# ${note.title || '无标题'}\n\n${note.content}\n\n---\n创建于 ${new Date(note.createdAt).toLocaleString()}`;
+        const blob = new Blob([content], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${note.title || '笔记'}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+  
+      // 添加导出按钮到查看笔记模态框
+      const exportBtn = document.createElement('button');
+      exportBtn.className = 'px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors';
+      exportBtn.innerHTML = '<i class="fa fa-download mr-1"></i> 导出';
+      exportBtn.addEventListener('click', exportNote);
+      
+      elements.editViewNoteBtn.parentNode.insertBefore(exportBtn, elements.editViewNoteBtn.nextSibling);
+    </script>
+  </body>
+  </html>
